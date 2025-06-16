@@ -14,6 +14,7 @@ return new class extends Migration
             $table->foreignId('transaction_id')->constrained()->onDelete('cascade');
             $table->decimal('allocated_amount', 10, 2)->default(0);
             $table->timestamps();
+            $table->softDeletes();
 
             $table->unique(['payment_id', 'transaction_id']);
             $table->index('payment_id');

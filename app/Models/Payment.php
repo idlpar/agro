@@ -90,4 +90,10 @@ class Payment extends Model
     {
         return max($this->amount - $this->allocated_amount, 0);
     }
+
+    public function scopeOverdue($query)
+    {
+        return $query->where('due_date', '<', now())
+            ->where('status', '!=', 'paid');
+    }
 }

@@ -9,6 +9,7 @@
     use App\Http\Controllers\ProfileController;
     use App\Http\Controllers\TransactionController;
     use App\Http\Controllers\UserController;
+    use App\Http\Controllers\VisitController;
     use App\Models\User;
     use Illuminate\Support\Facades\Route;
 
@@ -36,10 +37,12 @@
         Route::post('users/store', [UserController::class, 'store'])->name('users.store');
         Route::post('users/{user}/restore', [UserController::class, 'restore'])->name('users.restore');
 
+        Route::get('/staff', [UserController::class, 'staffIndex'])->name('staff.index');
 
         Route::resource('customers', CustomerController::class)->parameters([
             'customers' => 'customer'
         ]);
+        Route::get('/customers/filter/{filter}', [CustomerController::class, 'index'])->name('customers.filter');
         Route::post('customers/{customer}/restore', [CustomerController::class, 'restore'])->name('customers.restore');
 
         // Customer specific prices
@@ -58,6 +61,7 @@
         // Transaction routes
         Route::resource('transactions', TransactionController::class);
         Route::get('transactions/report', [TransactionController::class, 'report'])->name('transactions.report');
+        Route::get('/transactions/filter/{status}', [TransactionController::class, 'index'])->name('transactions.filter');
 
         // Payments routes
         // Custom GET routes - place BEFORE resource() to avoid conflicts
@@ -74,6 +78,13 @@
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+        Route::get('visits/collection-list', [VisitController::class, 'collectionList'])->name('visits.collection-list');
+        Route::post('visits/{visit}/complete', [VisitController::class, 'markComplete'])->name('visits.complete');
+        Route::resource('visits', VisitController::class);
+
+        // Reports route
+        Route::get('/reports/generate', [ReportController::class, 'generate'])->name('reports.generate');
     });
 
 

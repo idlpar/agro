@@ -25,4 +25,11 @@ class Product extends Model
     {
         return $this->variants()->whereNull('deleted_at');
     }
+
+    public function transactions()
+    {
+        return $this->belongsToMany(Transaction::class)
+            ->withPivot('quantity', 'unit_price')
+            ->withTimestamps();
+    }
 }

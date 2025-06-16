@@ -315,7 +315,26 @@ class PaymentController extends Controller
 
     public function dueList()
     {
+        // Get all customers with their due amounts calculated in a subquery
         $customers = User::where('role', 'customer')
+            ->select(['users.*'])
+            ->selectRaw('(
+            SELECT COALESCE(SUM(transactions.total_amount), 0)
+            FROM transactions
+            WHERE transactions.user_id = users.id
+        ) as total_transactions')
+            ->selectRaw('(
+            SELECT COALESCE(SUM(payment_transaction.allocated_amount), 0)
+            FROM payment_transaction
+            JOIN transactions ON payment_transaction.transaction_id = transactions.id
+            WHERE transactions.user_id = users.id
+        ) as total_paid')
+            ->selectRaw('(
+            SELECT MAX(transactions.transaction_date)
+            FROM transactions
+            WHERE transactions.user_id = users.id
+        ) as last_transaction_date')
+            ->havingRaw('total_transactions > total_paid')
             ->withCount([
                 'transactions',
                 'transactions as paid_transactions_count' => function($query) {
@@ -325,36 +344,20 @@ class PaymentController extends Controller
                     $query->where('is_paid', false);
                 }
             ])
-            ->with(['transactions' => function($query) {
-                $query->select('user_id', DB::raw('SUM(total_amount) as total_amount'))
-                    ->groupBy('user_id');
-            }])
-            ->with(['transactions.payments' => function($query) {
-                $query->select('transaction_id', DB::raw('SUM(payment_transaction.allocated_amount) as paid_amount'));
-            }])
-            ->withMax('transactions as last_transaction_date', 'transaction_date')
             ->paginate(20);
 
-        // Calculate accurate due amounts
-        $customers->getCollection()->transform(function($customer) {
-            $totalAmount = $customer->transactions->sum('total_amount');
-            $totalPaid = $customer->transactions->sum(function($transaction) {
-                return $transaction->payments->sum('paid_amount');
-            });
-            $customer->total_due = max($totalAmount - $totalPaid, 0);
-            return $customer;
+        // Calculate summary statistics
+        $totalDueAmount = $customers->sum(function($customer) {
+            return $customer->total_transactions - $customer->total_paid;
         });
 
-        // Filter out customers with no due (after pagination)
-        $customers->setCollection(
-            $customers->getCollection()->filter(function($customer) {
-                return $customer->total_due > 0;
-            })
-        );
-
-        // Calculate summary statistics
-        $totalDueAmount = $customers->sum('total_due');
         $averageDue = $customers->count() > 0 ? $totalDueAmount / $customers->count() : 0;
+
+        // Add total_due to each customer for easier access in the view
+        $customers->getCollection()->transform(function($customer) {
+            $customer->total_due = $customer->total_transactions - $customer->total_paid;
+            return $customer;
+        });
 
         return view('payments.due-list', [
             'customers' => $customers,

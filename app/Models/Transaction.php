@@ -46,6 +46,13 @@ class Transaction extends Model
         return $this->belongsTo(ProductVariant::class, 'product_variant_id');
     }
 
+    public function products()
+    {
+        return $this->belongsToMany(Product::class)
+            ->withPivot('quantity', 'unit_price')
+            ->withTimestamps();
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
