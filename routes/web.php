@@ -7,6 +7,7 @@
     use App\Http\Controllers\ProductVariantController;
     use App\Http\Controllers\CustomerPriceController;
     use App\Http\Controllers\ProfileController;
+    use App\Http\Controllers\ReportController;
     use App\Http\Controllers\TransactionController;
     use App\Http\Controllers\UserController;
     use App\Http\Controllers\VisitController;
@@ -51,11 +52,14 @@
         });
 
         // Product management routes
-        Route::resource('products', ProductController::class);
         Route::prefix('products/{product}')->group(function () {
-            Route::resource('variants', ProductVariantController::class)->except(['index', 'show']);
+            Route::resource('variants', ProductVariantController::class)
+                ->except(['index', 'show'])
+                ->parameters([
+                    'variants' => 'variant',
+                ]);
         });
-
+        Route::resource('products', ProductController::class);
 
 
         // Transaction routes
