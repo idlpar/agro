@@ -307,70 +307,78 @@ class TransactionController extends Controller
             // Calculate new total amount
             $newTotalAmount = ($validated['quantity'] * $validated['unit_price']) - ($validated['discount_amount'] ?? 0);
 
-            // For transactions with existing payments, lock financial fields
-            if ($transaction->hasPayments()) {
-                $originalValues = [
-                    'quantity' => $transaction->quantity,
-                    'unit_price' => $transaction->unit_price,
-                    'discount_amount' => $transaction->discount_amount,
-                    'total_amount' => $transaction->total_amount,
-                ];
+            // Update transaction details
+            $transaction->update([
+                'product_variant_id' => $validated['product_variant_id'],
+                'transaction_date' => $validated['transaction_date'],
+                'quantity' => $validated['quantity'],
+                'unit_price' => $validated['unit_price'],
+                'discount_amount' => $validated['discount_amount'] ?? 0,
+                'total_amount' => $newTotalAmount,
+                'notes' => $validated['notes'],
+            ]);
 
-                // Merge original financial values to prevent changes
-                $validated = array_merge($validated, $originalValues);
-            } else {
-                // For unpaid transactions, update financial fields normally
-                $validated['total_amount'] = $newTotalAmount;
-                $validated['discount_amount'] = $validated['discount_amount'] ?? 0;
-            }
+            // Find the first payment associated with this transaction to update it
+            $firstPayment = $transaction->payments()->orderBy('payment_transaction.created_at')->first();
 
-            // Handle payment status changes regardless of existing payments
-            $validated['is_paid'] = $validated['is_paid'] == 1; // Convert to boolean
-            $validated['partial_pay'] = $validated['partial_payment_amount'] ?? 0;
-
-            // Update the transaction
-            $transaction->update($validated);
-
-            // Get total payments made so far
-            $paidAmount = $transaction->paid_amount;
             $newStatus = $request->is_paid;
 
-            // Handle payment status changes
-            if ($newStatus == 1 && !$transaction->isFullyPaid()) {
-                // Mark as fully paid - pay remaining amount
-                $remaining = $validated['total_amount'] - $paidAmount;
+            if ($newStatus == 1) { // "Fully Paid"
+                if ($firstPayment) {
+                    // Update existing payment and its allocation
+                    $firstPayment->update(['amount' => $newTotalAmount]);
+                    $transaction->payments()->updateExistingPivot($firstPayment->id, [
+                        'allocated_amount' => $newTotalAmount
+                    ]);
+                } else {
+                    // Create a new payment if none existed
+                    $payment = Payment::create([
+                        'user_id' => $transaction->user_id,
+                        'received_by' => auth()->id(),
+                        'payment_date' => $validated['transaction_date'],
+                        'amount' => $newTotalAmount,
+                        'notes' => 'Payment created on transaction update.'
+                    ]);
+                    $transaction->payments()->attach($payment->id, ['allocated_amount' => $newTotalAmount]);
+                }
+                $transaction->update(['is_paid' => true]);
 
-                $payment = Payment::create([
-                    'user_id' => $transaction->user_id,
-                    'received_by' => auth()->id(),
-                    'payment_date' => $validated['transaction_date'],
-                    'amount' => $remaining,
-                    'notes' => 'Payment recorded with transaction update'
-                ]);
+            } elseif ($newStatus == 2) { // "Partial Payment"
+                $partialAmount = $validated['partial_payment_amount'] ?? 0;
+                if ($firstPayment) {
+                    // Update existing payment with the new partial amount
+                    $firstPayment->update(['amount' => $partialAmount]);
+                    $transaction->payments()->updateExistingPivot($firstPayment->id, [
+                        'allocated_amount' => $partialAmount
+                    ]);
+                } else {
+                    // Create a new partial payment if none existed
+                    $payment = Payment::create([
+                        'user_id' => $transaction->user_id,
+                        'received_by' => auth()->id(),
+                        'payment_date' => $validated['transaction_date'],
+                        'amount' => $partialAmount,
+                        'notes' => 'Partial payment created on transaction update.'
+                    ]);
+                    $transaction->payments()->attach($payment->id, ['allocated_amount' => $partialAmount]);
+                }
+                $transaction->update(['is_paid' => false]);
 
-                $transaction->payments()->attach($payment->id, [
-                    'allocated_amount' => $remaining
-                ]);
-            } elseif ($newStatus == 2) {
-                // Partial payment - add the partial amount
-                $payment = Payment::create([
-                    'user_id' => $transaction->user_id,
-                    'received_by' => auth()->id(),
-                    'payment_date' => $validated['transaction_date'],
-                    'amount' => $validated['partial_payment_amount'],
-                    'notes' => 'Partial payment recorded with transaction update'
-                ]);
-
-                $transaction->payments()->attach($payment->id, [
-                    'allocated_amount' => $validated['partial_payment_amount']
-                ]);
+            } else { // "Due"
+                 // If status is set to "Due", we remove the associated payment link and payment record
+                 // This assumes setting to "Due" means nullifying any payment made with the transaction
+                if ($firstPayment) {
+                    $transaction->payments()->detach($firstPayment->id);
+                    $firstPayment->delete();
+                }
+                $transaction->update(['is_paid' => false]);
             }
 
             DB::commit();
 
             return redirect()
                 ->route('transactions.index')
-                ->with('success', 'Transaction updated successfully');
+                ->with('success', 'Transaction updated successfully.');
 
         } catch (\Exception $e) {
             DB::rollBack();

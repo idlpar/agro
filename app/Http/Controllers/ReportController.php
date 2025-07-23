@@ -46,11 +46,9 @@ class ReportController extends Controller
             ->get()
             ->map(function ($customer) use ($startDate, $endDate) {
                 // Calculate total paid for this customer’s transactions in the date range
-                $totalPaid = DB::table('payment_transaction')
-                    ->join('transactions', 'payment_transaction.transaction_id', '=', 'transactions.id')
-                    ->where('transactions.user_id', $customer->id)
-                    ->whereBetween('transactions.transaction_date', [$startDate, $endDate])
-                    ->sum('payment_transaction.allocated_amount');
+                $totalPaid = Payment::where('user_id', $customer->id)
+                    ->whereBetween('payment_date', [$startDate, $endDate])
+                    ->sum('amount');
 
                 $customer->total_revenue = $customer->total_revenue ?? 0;
                 $customer->total_paid = $totalPaid ?? 0;

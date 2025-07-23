@@ -12,8 +12,8 @@ class AdminUserSeeder extends Seeder
     {
         // Create Admin Users
         $admin1 = User::create([
-            'name' => 'Talukder Agro Eco Farm',
-            'email' => 'a@b.c',
+            'name' => 'Talukder Agro',
+            'email' => 'niloy@tarpor.com',
             'phone' => '01711223344',
             'address' => 'Farm Address, Dhaka',
             'password' => Hash::make('password'),

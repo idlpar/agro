@@ -288,7 +288,7 @@
                                     {{ number_format($payment->amount, 2) }} Tk
                                 </td>
                                 <td class="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
-                                    {{ number_format($payment->transactions->sum('total_amount'), 2) }} Tk
+                                    {{ number_format($payment->transactions->sum('pivot.allocated_amount'), 2) }} Tk
                                 </td>
                                 <td class="px-4 py-2 whitespace-nowrap">
                                     <div class="flex items-center">

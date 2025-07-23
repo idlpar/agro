@@ -24,9 +24,57 @@
                 </svg>
             </button>
         </div>
-    @endif
-
-    @if(session('error'))
+    @elseif(session('status') === 'profile-updated')
+        <div
+            x-data="{ show: true }"
+            x-init="setTimeout(() => show = false, 5000)"
+            x-show="show"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-x-10"
+            x-transition:enter-end="opacity-100 translate-x-0"
+            x-transition:leave="transition ease-in duration-300"
+            x-transition:leave-start="opacity-100 translate-x-0"
+            x-transition:leave-end="opacity-0 translate-x-10"
+            class="flex items-center p-4 bg-white border-l-4 border-green-500 text-gray-800 rounded-lg shadow-lg"
+        >
+            <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="ml-3 text-sm">{{ __('Profile successfully updated.') }}</span>
+            <button @click="show = false" class="ml-auto p-1 hover:bg-gray-100 rounded-full" aria-label="Close">
+                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    @elseif(session('status') === 'password-updated')
+        <div
+            x-data="{ show: true }"
+            x-init="setTimeout(() => show = false, 5000)"
+            x-show="show"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-x-10"
+            x-transition:enter-end="opacity-100 translate-x-0"
+            x-transition:leave="transition ease-in duration-300"
+            x-transition:leave-start="opacity-100 translate-x-0"
+            x-transition:leave-end="opacity-0 translate-x-10"
+            class="flex items-center p-4 bg-white border-l-4 border-green-500 text-gray-800 rounded-lg shadow-lg"
+        >
+            <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="ml-3 text-sm">{{ __('Password successfully updated.') }}</span>
+            <button @click="show = false" class="ml-auto p-1 hover:bg-gray-100 rounded-full" aria-label="Close">
+                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    @elseif(session('error'))
         <div
             x-data="{ show: true }"
             x-init="setTimeout(() => show = false, 5000)"

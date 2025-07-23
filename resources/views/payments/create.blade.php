@@ -53,7 +53,7 @@
                                     <option value="">{{ __('Select Customer') }}</option>
                                     @foreach($customers as $customer)
                                         <option value="{{ $customer->id }}" {{ old('user_id') == $customer->id ? 'selected' : '' }}>
-                                            {{ $customer->name }}
+                                            {{ $customer->name }} @if($customer->phone) ({{ $customer->phone }}) @elseif($customer->address) ({{ $customer->address }}) @endif
                                         </option>
                                     @endforeach
                                 </select>

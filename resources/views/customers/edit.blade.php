@@ -90,7 +90,7 @@
                             <div>
                                 <x-label for="phone" :value="__('Phone Number')" class="block text-sm font-medium text-gray-700 mb-1" />
                                 <div class="mt-1 relative rounded-md shadow-sm">
-                                    <x-input id="phone" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" type="tel" name="phone" :value="old('phone', $customer->phone)" required />
+                                    <x-input id="phone" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" type="tel" name="phone" :value="old('phone', $customer->phone)" />
                                 </div>
                                 @error('phone')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>

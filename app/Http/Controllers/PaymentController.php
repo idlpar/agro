@@ -88,9 +88,10 @@ class PaymentController extends Controller
 
         // Calculate summary stats
         $totalAmount = $payments->sum('amount');
-        $totalAllocated = $payments->sum(function($payment) {
-            return $payment->transactions->sum('total_amount');
-        });
+        $totalAllocated = 0;
+        foreach ($payments as $payment) {
+            $totalAllocated += $payment->transactions->sum('pivot.allocated_amount');
+        }
         $totalUnallocated = $totalAmount - $totalAllocated;
 
         return view('payments.index', compact(
@@ -324,10 +325,9 @@ class PaymentController extends Controller
             WHERE transactions.user_id = users.id
         ) as total_transactions')
             ->selectRaw('(
-            SELECT COALESCE(SUM(payment_transaction.allocated_amount), 0)
-            FROM payment_transaction
-            JOIN transactions ON payment_transaction.transaction_id = transactions.id
-            WHERE transactions.user_id = users.id
+            SELECT COALESCE(SUM(payments.amount), 0)
+            FROM payments
+            WHERE payments.user_id = users.id
         ) as total_paid')
             ->selectRaw('(
             SELECT MAX(transactions.transaction_date)

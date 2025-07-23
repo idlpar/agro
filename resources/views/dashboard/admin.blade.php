@@ -27,13 +27,13 @@
                     <div class="p-6">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-600">Total Revenue</p>
-                                <p class="text-2xl font-bold mt-1 text-gray-900">৳{{ number_format($totalRevenue, 2) }}</p>
+                                <p class="text-sm font-medium text-gray-600">Last Month Revenue</p>
+                                <p class="text-2xl font-bold mt-1 text-gray-900">৳{{ number_format($lastMonthTotalRevenue, 2) }}</p>
                                 <div class="flex items-center mt-2">
                                     <span class="text-sm {{ $revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600' }}">
                                         {{ $revenueGrowth >= 0 ? '↑' : '↓' }} {{ abs($revenueGrowth) }}%
                                     </span>
-                                    <span class="text-xs text-gray-500 ml-2">vs last month</span>
+                                    <span class="text-xs text-gray-500 ml-2">vs this month (৳{{ number_format($thisMonthTotalRevenue, 2) }})</span>
                                 </div>
                             </div>
                             <div class="p-3 rounded-full bg-green-100 text-green-600">
@@ -87,8 +87,8 @@
                     <div class="p-6">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-600">Total Payments</p>
-                                <p class="text-2xl font-bold mt-1 text-gray-900">৳{{ number_format($totalPayments, 2) }}</p>
+                                <p class="text-sm font-medium text-gray-600">Last Month Payments</p>
+                                <p class="text-2xl font-bold mt-1 text-gray-900">৳{{ number_format($lastMonthTotalPayments, 2) }}</p>
                                 <div class="flex items-center mt-2">
                                     <span class="text-sm text-purple-600">৳{{ number_format($monthlyPayments, 2) }} this month</span>
                                     <span class="text-xs text-gray-500 ml-2">• ৳{{ number_format($outstandingPayments, 2) }} due</span>
@@ -235,7 +235,7 @@
                                         <div>
                                             <h4 class="font-medium text-gray-900">{{ $transaction->customer->name ?? 'N/A' }}</h4>
                                             <div class="text-sm text-gray-500 mt-1">
-                                                {{ $transaction->variant->product->name ?? 'N/A' }} - {{ $transaction->variant->name ?? 'N/A' }}
+                                                {{ $transaction->variant->product->name ?? 'N/A' }} {{ $transaction->variant->name ?? 'N/A' }} x {{ $transaction->quantity }} units
                                             </div>
                                         </div>
                                         <div class="text-right">
@@ -282,7 +282,7 @@
                                     </div>
                                     <div class="mt-2">
                                         <span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                                            {{ $payment->transactions_count ?? 0 }} transactions
+                                            {{ $payment->transactions->count() ?? 0 }} transactions
                                         </span>
                                     </div>
                                 </div>
@@ -412,7 +412,7 @@
                                 <h4 class="font-medium text-gray-900 text-sm">{{ $variant->product->name ?? 'N/A' }}</h4>
                                 <p class="text-xs text-gray-500 mb-2">{{ $variant->name ?? 'N/A' }}</p>
                                 <div class="text-sm font-medium text-gray-900">৳{{ number_format($variant->default_price ?? 0, 2) }}</div>
-                                <div class="text-xs text-gray-500 mt-1">{{ $variant->sold_quantity ?? 0 }} sold</div>
+                                <div class="text-xs text-gray-500 mt-1">{{ $variant->sold_quantity_last_month ?? 0 }} unit last month VS </br> {{ $variant->sold_quantity_this_month ?? 0 }} unit this month</div>
                             </div>
                         @empty
                             <div class="text-center text-gray-500 col-span-full">No top selling products</div>
@@ -535,7 +535,7 @@
             });
 
             // Historical Product Sales Chart
-            const historicalSalesData = @json($historicalProductSalesChartData);
+            const historicalSalesData = @json($historicalProductSalesChartData ?? ['labels' => [], 'datasets' => []]);
             const historicalSalesCtx = document.getElementById('historicalSalesChart').getContext('2d');
             const historicalSalesChart = new Chart(historicalSalesCtx, {
                 type: 'line',

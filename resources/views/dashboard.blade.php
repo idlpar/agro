@@ -394,7 +394,7 @@
                                             <div class="text-sm text-gray-900">{{ $transaction->products->count() }} items</div>
                                             <div class="text-xs text-gray-500">
                                                 @foreach($transaction->products->take(2) as $product)
-                                                    {{ $product->name }}@if(!$loop->last), @endif
+                                                    {{ $product->name }} x {{ $product->pivot->quantity }} {{ $product->unit }}@if(!$loop->last), @endif
                                                 @endforeach
                                                 @if($transaction->products->count() > 2) +{{ $transaction->products->count() - 2 }} more @endif
                                             </div>
