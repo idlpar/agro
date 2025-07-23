@@ -224,23 +224,31 @@ class PaymentController extends Controller
             'payment_date' => 'required|date',
             'amount' => 'required|numeric|min:0.01',
             'notes' => 'nullable|string',
-            'mark_transactions_paid' => 'sometimes|boolean'
         ]);
 
-        DB::transaction(function () use ($payment, $validated, $request) {
-            // Detach all existing allocations
+        DB::transaction(function () use ($payment, $validated) {
+            // Find all transactions that were linked to this payment before any changes
+            $previouslyLinkedTransactions = $payment->transactions()->get();
+
+            // Detach all existing allocations from the pivot table
             $payment->transactions()->detach();
 
-            // Update payment details
+            // Force each of those previously linked transactions to re-evaluate its paid status
+            foreach ($previouslyLinkedTransactions as $transaction) {
+                $transaction->updatePaymentStatus();
+            }
+
+            // Now, update the payment record itself with the new amount and details
             $payment->update($validated);
 
-            if ($request->boolean('mark_transactions_paid')) {
-                $customer = User::find($validated['user_id']);
+            // Always re-allocate the payment's new amount to the customer's due transactions
+            $customer = User::find($validated['user_id']);
+            if ($customer) {
                 $this->allocatePaymentToTransactions($payment, $customer, $validated['amount']);
             }
         });
 
-        return redirect()->route('payments.index')->with('success', 'Payment updated successfully');
+        return redirect()->route('payments.index')->with('success', 'Payment updated successfully and reallocated.');
     }
 
 
@@ -249,12 +257,24 @@ class PaymentController extends Controller
         $this->authorize('delete', $payment);
 
         DB::transaction(function () use ($payment) {
-            // Reverse any transaction markings before deleting
-            $payment->transactions()->update(['is_paid' => false]);
+            // Find all transactions linked to this payment before we do anything.
+            $linkedTransactions = $payment->transactions()->get();
+
+            // First, remove the links from the pivot table.
+            $payment->transactions()->detach();
+
+            // Now, delete the payment record itself.
             $payment->delete();
+
+            // Finally, loop through each previously linked transaction and force it to update its status.
+            // This ensures that if a transaction was marked as 'paid' only because of this payment,
+            // it will be correctly updated to 'due' or 'partial'.
+            foreach ($linkedTransactions as $transaction) {
+                $transaction->updatePaymentStatus();
+            }
         });
 
-        return back()->with('success', 'Payment deleted successfully');
+        return back()->with('success', 'Payment deleted successfully and transaction statuses have been updated.');
     }
 
     public function customerPayments($customerId)
