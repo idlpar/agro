@@ -392,6 +392,49 @@ class TransactionController extends Controller
         }
     }
 
+    public function trashed()
+    {
+        $this->authorize('viewAny', Transaction::class);
+
+        $transactions = Transaction::onlyTrashed()->with(['customer', 'variant.product'])->latest()->paginate(20);
+
+        return view('transactions.trashed', compact('transactions'));
+    }
+
+    public function restore(Transaction $transaction)
+    {
+        $this->authorize('update', $transaction);
+
+        DB::transaction(function () use ($transaction) {
+            // Restore the soft-deleted transaction
+            $transaction->restore();
+
+            // Restore the soft-deleted pivot table entries
+            DB::table('payment_transaction')
+                ->where('transaction_id', $transaction->id)
+                ->update(['deleted_at' => null]);
+        });
+
+        return redirect()->route('transactions.trashed')->with('success', 'Transaction restored successfully.');
+    }
+
+    public function forceDelete(Transaction $transaction)
+    {
+        $this->authorize('delete', $transaction);
+
+        DB::transaction(function () use ($transaction) {
+            // Permanently delete the pivot table entries
+            DB::table('payment_transaction')
+                ->where('transaction_id', $transaction->id)
+                ->delete();
+
+            // Permanently delete the transaction
+            $transaction->forceDelete();
+        });
+
+        return redirect()->route('transactions.trashed')->with('success', 'Transaction permanently deleted.');
+    }
+
     public function destroy(Transaction $transaction)
     {
         $this->authorize('delete', $transaction);

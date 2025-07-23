@@ -230,8 +230,10 @@ class PaymentController extends Controller
             // Find all transactions that were linked to this payment before any changes
             $previouslyLinkedTransactions = $payment->transactions()->get();
 
-            // Detach all existing allocations from the pivot table
-            $payment->transactions()->detach();
+            // Soft delete all existing allocations from the pivot table
+            if ($previouslyLinkedTransactions->isNotEmpty()) {
+                $payment->transactions()->updateExistingPivot($previouslyLinkedTransactions->pluck('id'), ['deleted_at' => now()]);
+            }
 
             // Force each of those previously linked transactions to re-evaluate its paid status
             foreach ($previouslyLinkedTransactions as $transaction) {
@@ -251,6 +253,49 @@ class PaymentController extends Controller
         return redirect()->route('payments.index')->with('success', 'Payment updated successfully and reallocated.');
     }
 
+
+    public function trashed()
+    {
+        $this->authorize('viewAny', Payment::class);
+
+        $payments = Payment::onlyTrashed()->with(['customer', 'receiver'])->latest()->paginate(20);
+
+        return view('payments.trashed', compact('payments'));
+    }
+
+    public function restore(Payment $payment)
+    {
+        $this->authorize('update', $payment);
+
+        DB::transaction(function () use ($payment) {
+            // Restore the soft-deleted payment
+            $payment->restore();
+
+            // Restore the soft-deleted pivot table entries
+            DB::table('payment_transaction')
+                ->where('payment_id', $payment->id)
+                ->update(['deleted_at' => null]);
+        });
+
+        return redirect()->route('payments.trashed')->with('success', 'Payment restored successfully.');
+    }
+
+    public function forceDelete(Payment $payment)
+    {
+        $this->authorize('delete', $payment);
+
+        DB::transaction(function () use ($payment) {
+            // Permanently delete the pivot table entries for this payment
+            DB::table('payment_transaction')
+                ->where('payment_id', $payment->id)
+                ->delete();
+
+            // Permanently delete the payment
+            $payment->forceDelete();
+        });
+
+        return redirect()->route('payments.trashed')->with('success', 'Payment permanently deleted.');
+    }
 
     public function destroy(Payment $payment)
     {

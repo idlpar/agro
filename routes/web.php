@@ -68,11 +68,17 @@
 
 
         // Transaction routes
+        Route::get('transactions/trashed', [TransactionController::class, 'trashed'])->name('transactions.trashed');
+        Route::post('transactions/{transaction}/restore', [TransactionController::class, 'restore'])->name('transactions.restore');
+        Route::delete('transactions/{transaction}/force-delete', [TransactionController::class, 'forceDelete'])->name('transactions.forceDelete');
         Route::resource('transactions', TransactionController::class);
         Route::get('transactions/report', [TransactionController::class, 'report'])->name('transactions.report');
         Route::get('/transactions/filter/{status}', [TransactionController::class, 'index'])->name('transactions.filter');
 
         // Payments routes
+        Route::get('payments/trashed', [PaymentController::class, 'trashed'])->name('payments.trashed');
+        Route::post('payments/{payment}/restore', [PaymentController::class, 'restore'])->name('payments.restore');
+        Route::delete('payments/{payment}/force-delete', [PaymentController::class, 'forceDelete'])->name('payments.forceDelete');
         // Custom GET routes - place BEFORE resource() to avoid conflicts
         Route::get('payments/due-list', [PaymentController::class, 'dueList'])->name('payments.dueList');
         Route::get('payments/visit-list', [PaymentController::class, 'visitList'])->name('payments.visitList');
