@@ -52,8 +52,13 @@
                                         class="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg transition">
                                     <option value="">{{ __('Select Customer') }}</option>
                                     @foreach($customers as $customer)
-                                        <option value="{{ $customer->id }}" {{ old('user_id') == $customer->id ? 'selected' : '' }}>
-                                            {{ $customer->name }} @if($customer->phone) ({{ $customer->phone }}) @elseif($customer->address) ({{ $customer->address }}) @endif
+                                        <option value="{{ $customer->id }}"
+                                                data-due="{{ $customer->calculated_due_amount }}"
+                                            {{ old('user_id') == $customer->id ? 'selected' : '' }}>
+                                            {{ $customer->name }} @if($customer->phone) ({{ $customer->phone }}) @endif
+                                            @if($customer->calculated_due_amount > 0)
+                                                (Due: {{ number_format($customer->calculated_due_amount, 2) }} Tk)
+                                            @endif
                                         </option>
                                     @endforeach
                                 </select>
@@ -270,6 +275,33 @@
                     `;
                         });
                 });
+
+                // Function to update the displayed text of the selected option
+                function updateCustomerSelectDisplay() {
+                    const selectedOption = customerSelect.options[customerSelect.selectedIndex];
+                    // Only modify if a customer is actually selected (not the placeholder)
+                    if (selectedOption && selectedOption.value !== '') {
+                        const dueAmount = parseFloat(selectedOption.dataset.due);
+                        const customerName = selectedOption.dataset.name;
+                        const customerPhone = selectedOption.dataset.phone;
+
+                        let displayText = customerName;
+                        if (customerPhone) {
+                            displayText += ` (${customerPhone})`;
+                        }
+
+                        if (dueAmount > 0) {
+                            displayText += ` (Due: ${dueAmount.toFixed(2)} Tk)`;
+                        }
+                        selectedOption.textContent = displayText;
+                    }
+                }
+
+                // Initial update on page load
+                updateCustomerSelectDisplay();
+
+                // Update on customer selection change
+                customerSelect.addEventListener('change', updateCustomerSelectDisplay);
 
                 // Trigger change if customer is already selected (form validation error)
                 if (customerSelect.value) {

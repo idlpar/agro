@@ -295,6 +295,9 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div class="mt-4">
+                            {{ $duePayments->links() }}
+                        </div>
                     </div>
                 </div>
 
@@ -453,6 +456,9 @@
                                     </div>
                                 </div>
                             @endforeach
+                        </div>
+                        <div class="mt-4">
+                            {{ $topSellingVariants->links() }}
                         </div>
 
                         <div class="mt-6">

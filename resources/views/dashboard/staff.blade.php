@@ -370,10 +370,9 @@
                                 </div>
                             @endforeach
                         </div>
-                    </div>
-                </div>
-
-                <!-- Quick Actions -->
+                        <div class="mt-4">
+                            {{ $myTopProducts->links() }}
+                        </div>
                 <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
                     <div class="p-6">
                         <h3 class="text-lg font-semibold text-gray-800 mb-6">Quick Actions</h3>
@@ -521,6 +520,9 @@
                             @endforeach
                             </tbody>
                         </table>
+                    </div>
+                    <div class="mt-4">
+                        {{ $myDueTransactions->links() }}
                     </div>
                 </div>
             </div>

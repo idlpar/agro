@@ -239,6 +239,17 @@
     @push('scripts')
         <script>
             document.addEventListener('DOMContentLoaded', function() {
+                // Custom function for Bangladeshi currency formatting (lakh/crore system)
+                function formatBangladeshiCurrency(amount) {
+                    let [integerPart, decimalPart] = parseFloat(amount).toFixed(2).split('.');
+                    let lastThree = integerPart.substring(integerPart.length - 3);
+                    let otherNumbers = integerPart.substring(0, integerPart.length - 3);
+                    if (otherNumbers != '') {
+                        lastThree = ',' + lastThree;
+                    }
+                    let formatted = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree;
+                    return formatted + '.' + decimalPart;
+                }
                 // Elements
                 const customerSelect = document.getElementById('user_id');
                 const productSelect = document.getElementById('product_variant_id');
@@ -268,8 +279,8 @@
                     const discount = parseFloat(discountInput.value) || 0;
                     const total = (quantity * unitPrice) - discount;
 
-                    calculatedTotal.textContent = total.toFixed(2) + ' Tk';
-                    breakdown.textContent = `(${quantity.toFixed(2)} × ${unitPrice.toFixed(2)}) - ${discount.toFixed(2)} = ${total.toFixed(2)}`;
+                    calculatedTotal.textContent = formatBangladeshiCurrency(total) + ' Tk';
+                    breakdown.textContent = `(${formatBangladeshiCurrency(quantity)} × ${formatBangladeshiCurrency(unitPrice)}) - ${formatBangladeshiCurrency(discount)} = ${formatBangladeshiCurrency(total)}`;
 
                     // Update partial payment max value and remaining amount
                     if (partialPaymentInput) {
@@ -346,9 +357,9 @@
                                 console.log('API Response:', data); // Debug log
 
                                 // Update summary
-                                totalTransactionsEl.textContent = parseFloat(data.total_amount).toFixed(2);
-                                paidTransactionsEl.textContent = parseFloat(data.paid_amount).toFixed(2);
-                                dueAmountEl.textContent = parseFloat(data.due_amount).toFixed(2) + ' Tk';
+                                totalTransactionsEl.textContent = formatBangladeshiCurrency(data.total_amount);
+                                paidTransactionsEl.textContent = formatBangladeshiCurrency(data.paid_amount);
+                                dueAmountEl.textContent = formatBangladeshiCurrency(data.due_amount) + ' Tk';
                                 transactionCountEl.textContent = `${data.transaction_count} transactions`;
 
                                 // Update recent transactions
@@ -356,6 +367,7 @@
                                 if (data.recent_transactions && data.recent_transactions.length > 0) {
                                     noTransactions.style.display = 'none';
                                     data.recent_transactions.forEach(transaction => {
+                                        // Convert string values to numbers
                                         // Convert string values to numbers
                                         const unitPrice = parseFloat(transaction.unit_price) || 0;
                                         const totalAmount = parseFloat(transaction.total_amount) || 0;
@@ -379,9 +391,12 @@
                                             statusClass = 'bg-red-100 text-red-800';
                                         }
 
+                                        const transactionDate = new Date(transaction.transaction_date);
+                                        const formattedDate = transactionDate.getDate() + ' ' + transactionDate.toLocaleString('en-US', { month: 'short' }) + ' ' + transactionDate.getFullYear();
+
                                         row.innerHTML = `
                             <td class="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
-                                ${new Date(transaction.transaction_date).toLocaleDateString()}
+                                ${formattedDate}
                             </td>
                             <td class="px-4 py-3 text-xs text-gray-600">
                                 ${transaction.product_name || 'N/A'}
@@ -389,11 +404,11 @@
                             <td class="px-4 py-3 text-xs text-gray-600">
                                 ${transaction.variant_name || 'N/A'}
                                 <div class="text-xs text-gray-400">
-                                    ${transaction.quantity} × ৳${unitPrice.toFixed(2)}
+                                    ${transaction.quantity} × ${formatBangladeshiCurrency(unitPrice)} Tk
                                 </div>
                             </td>
                             <td class="px-4 py-3 text-xs text-gray-600">
-                                ৳${totalAmount.toFixed(2)}
+                                ${formatBangladeshiCurrency(totalAmount)} Tk
                             </td>
                             <td class="px-4 py-3 text-xs">
                                 <span class="px-2 py-1 inline-flex text-xs rounded-full ${statusClass}">

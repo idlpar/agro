@@ -91,9 +91,8 @@ class DashboardController extends Controller
                         ->whereMonth('transaction_date', $lastMonth->month);
                 }, 'sold_quantity_last_month')
                 ->orderByDesc('sold_quantity_last_month')
-                ->take(5)
-                ->get()
-                ->map(function ($variant) {
+                ->paginate(5)
+                ->through(function ($variant) {
                     $variant->sold_quantity_this_month = Transaction::where('product_variant_id', $variant->id)
                         ->whereYear('transaction_date', now()->year)
                         ->whereMonth('transaction_date', now()->month)
@@ -123,8 +122,7 @@ class DashboardController extends Controller
                 ->where('is_paid', false)
                 ->withSum('payments as paid_amount', 'payment_transaction.allocated_amount')
                 ->orderBy('transaction_date')
-                ->take(10)
-                ->get()
+                ->paginate(10)
                 ->map(function ($transaction) {
                     $transaction->due_amount = $transaction->total_amount - ($transaction->paid_amount ?? 0);
                     return $transaction;
@@ -308,9 +306,8 @@ class DashboardController extends Controller
                         });
                 }, 'sold_quantity_last_month')
                 ->orderByDesc('sold_quantity_last_month')
-                ->take(5)
-                ->get()
-                ->map(function ($variant) use ($staffId) {
+                ->paginate(5)
+                ->through(function ($variant) use ($staffId) {
                     $variant->sold_quantity_this_month = Transaction::where('product_variant_id', $variant->id)
                         ->whereYear('transaction_date', now()->year)
                         ->whereMonth('transaction_date', now()->month)
@@ -343,8 +340,7 @@ class DashboardController extends Controller
                 ->where('is_paid', false)
                 ->withSum('payments as paid_amount', 'payment_transaction.allocated_amount')
                 ->orderBy('transaction_date')
-                ->take(10)
-                ->get()
+                ->paginate(10)
                 ->map(function ($transaction) {
                     $transaction->due_amount = $transaction->total_amount - ($transaction->paid_amount ?? 0);
                     return $transaction;

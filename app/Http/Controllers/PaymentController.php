@@ -111,11 +111,16 @@ class PaymentController extends Controller
 
         if ($user->isAdmin() || $user->isStaff()) {
             $customers = User::customer()
-                ->withSum(['transactions as total_due' => function($q) {
-                    $q->where('is_paid', false);
-                }], 'total_amount')
+                ->with(['dueTransactions.payments']) // Eager load payments for due transactions
                 ->orderBy('name')
-                ->get();
+                ->get()
+                ->map(function ($customer) {
+                    $customer->calculated_due_amount = $customer->dueTransactions->sum('total_amount') -
+                        $customer->dueTransactions->sum(function($t) {
+                            return $t->payments->sum('pivot.allocated_amount');
+                        });
+                    return $customer;
+                });
         } else {
             abort(403);
         }
