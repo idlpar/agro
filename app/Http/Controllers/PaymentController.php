@@ -381,35 +381,51 @@ class PaymentController extends Controller
 
     public function dueList()
     {
-        // Get all customers with their due amounts calculated in a subquery
-        $customers = User::where('role', 'customer')
+        $customersQuery = User::where('role', 'customer')
             ->select(['users.*'])
             ->selectRaw('(
             SELECT COALESCE(SUM(transactions.total_amount), 0)
             FROM transactions
-            WHERE transactions.user_id = users.id
+            WHERE transactions.user_id = users.id AND transactions.deleted_at IS NULL
         ) as total_transactions')
             ->selectRaw('(
             SELECT COALESCE(SUM(payments.amount), 0)
             FROM payments
-            WHERE payments.user_id = users.id
+            WHERE payments.user_id = users.id AND payments.deleted_at IS NULL
         ) as total_paid')
             ->selectRaw('(
             SELECT MAX(transactions.transaction_date)
             FROM transactions
-            WHERE transactions.user_id = users.id
+            WHERE transactions.user_id = users.id AND transactions.deleted_at IS NULL
         ) as last_transaction_date')
-            ->havingRaw('total_transactions > total_paid')
-            ->withCount([
-                'transactions',
-                'transactions as paid_transactions_count' => function($query) {
-                    $query->where('is_paid', true);
-                },
-                'transactions as unpaid_transactions_count' => function($query) {
-                    $query->where('is_paid', false);
-                }
-            ])
-            ->paginate(20);
+            ->selectRaw('(
+            SELECT COUNT(*)
+            FROM transactions
+            WHERE transactions.user_id = users.id AND transactions.deleted_at IS NULL
+        ) as transactions_count')
+            ->selectRaw('(
+            SELECT COUNT(*)
+            FROM transactions
+            WHERE transactions.user_id = users.id AND transactions.is_paid = 1 AND transactions.deleted_at IS NULL
+        ) as paid_transactions_count')
+            ->selectRaw('(
+            SELECT COUNT(*)
+            FROM transactions
+            WHERE transactions.user_id = users.id AND transactions.is_paid = 0 AND transactions.deleted_at IS NULL
+        ) as unpaid_transactions_count');
+
+        // Filter customers with due amounts before pagination
+        $customers = $customersQuery->get()->filter(function ($customer) {
+            return ($customer->total_transactions - $customer->total_paid) > 0;
+        });
+
+        // Manually paginate the filtered collection
+        $perPage = 20;
+        $currentPage = LengthAwarePaginator::resolveCurrentPage();
+        $currentItems = $customers->slice(($currentPage - 1) * $perPage, $perPage)->all();
+        $customers = new LengthAwarePaginator($currentItems, $customers->count(), $perPage, $currentPage, [
+            'path' => LengthAwarePaginator::resolveCurrentPath(),
+        ]);
 
         // Calculate summary statistics
         $totalDueAmount = $customers->sum(function($customer) {

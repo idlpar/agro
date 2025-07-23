@@ -23,11 +23,13 @@ class ReportController extends Controller
         // Fetch transactions
         $transactions = Transaction::with(['customer', 'variant.product'])
             ->whereBetween('transaction_date', [$startDate, $endDate])
+            ->whereNull('deleted_at') // Exclude soft-deleted transactions
             ->get();
 
         // Fetch payments
         $payments = Payment::with(['customer', 'receiver'])
             ->whereBetween('payment_date', [$startDate, $endDate])
+            ->whereNull('deleted_at') // Exclude soft-deleted payments
             ->get();
 
         // Fetch new customers
@@ -38,20 +40,22 @@ class ReportController extends Controller
         // Calculate customer financial metrics
         $customerFinancials = User::where('role', 'customer')
             ->select('users.id', 'users.name')
-            ->withSum([
-                'transactions as total_revenue' => function ($query) use ($startDate, $endDate) {
-                    $query->whereBetween('transaction_date', [$startDate, $endDate]);
-                }
-            ], 'total_amount')
+            ->selectSub(function ($query) use ($startDate, $endDate) {
+                $query->selectRaw('COALESCE(SUM(total_amount), 0)')
+                    ->from('transactions')
+                    ->whereColumn('user_id', 'users.id')
+                    ->whereNull('deleted_at') // Exclude soft-deleted transactions
+                    ->whereBetween('transaction_date', [$startDate, $endDate]);
+            }, 'total_revenue')
+            ->selectSub(function ($query) use ($startDate, $endDate) {
+                $query->selectRaw('COALESCE(SUM(amount), 0)')
+                    ->from('payments')
+                    ->whereColumn('user_id', 'users.id')
+                    ->whereNull('deleted_at') // Exclude soft-deleted payments
+                    ->whereBetween('payment_date', [$startDate, $endDate]);
+            }, 'total_paid')
             ->get()
-            ->map(function ($customer) use ($startDate, $endDate) {
-                // Calculate total paid for this customer’s transactions in the date range
-                $totalPaid = Payment::where('user_id', $customer->id)
-                    ->whereBetween('payment_date', [$startDate, $endDate])
-                    ->sum('amount');
-
-                $customer->total_revenue = $customer->total_revenue ?? 0;
-                $customer->total_paid = $totalPaid ?? 0;
+            ->map(function ($customer) {
                 $customer->total_due = $customer->total_revenue - $customer->total_paid;
                 return $customer;
             })
