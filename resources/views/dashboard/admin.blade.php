@@ -444,15 +444,15 @@
             }
 
             // Product Performance Chart (Daily Sales)
-            const productPerformanceData = @json($productPerformanceChartData);
+            const productPerformanceData = @json($productPerformanceChartData ?? ['labels' => [], 'datasets' => []]);
             const dailyProductSalesCtx = document.getElementById('dailyProductSalesChart').getContext('2d');
             const dailyProductSalesChart = new Chart(dailyProductSalesCtx, {
                 type: 'bar',
                 data: {
-                    labels: productPerformanceData.labels || [],
-                    datasets: (productPerformanceData.datasets || []).map((dataset, index) => ({
-                        label: dataset.label || 'Unknown',
-                        data: dataset.data || [],
+                    labels: productPerformanceData.labels ?? [],
+                    datasets: (productPerformanceData.datasets ?? []).map((dataset, index) => ({
+                        label: dataset.label ?? 'Unknown',
+                        data: dataset.data ?? [],
                         backgroundColor: function(context) {
                             const chart = context.chart;
                             const { ctx, chartArea } = chart;
@@ -540,10 +540,10 @@
             const historicalSalesChart = new Chart(historicalSalesCtx, {
                 type: 'line',
                 data: {
-                    labels: historicalSalesData.labels?.monthly || [],
-                    datasets: (historicalSalesData.datasets || []).map((dataset, index) => ({
-                        label: dataset.label || 'Unknown',
-                        data: dataset.monthly || [],
+                    labels: historicalSalesData.labels?.monthly ?? [],
+                    datasets: (historicalSalesData.datasets ?? []).map((dataset, index) => ({
+                        label: dataset.label ?? 'Unknown',
+                        data: dataset.monthly ?? [],
                         backgroundColor: function(context) {
                             const chart = context.chart;
                             const { ctx, chartArea } = chart;
@@ -637,7 +637,7 @@
             });
 
             // Customer Growth Chart
-            const customerGrowthData = @json($customerGrowthChartData);
+            const customerGrowthData = @json($customerGrowthChartData ?? ['labels' => [], 'data' => []]);
             const customerGrowthCtx = document.getElementById('customerGrowthChart').getContext('2d');
             const customerGrowthChart = new Chart(customerGrowthCtx, {
                 type: 'bar',
@@ -705,7 +705,7 @@
             });
 
             // Payment Collection Chart
-            const paymentCollectionData = @json($paymentCollectionChartData);
+            const paymentCollectionData = @json($paymentCollectionChartData ?? ['labels' => [], 'data' => []]);
             const paymentCollectionCtx = document.getElementById('paymentCollectionChart').getContext('2d');
             const paymentCollectionChart = new Chart(paymentCollectionCtx, {
                 type: 'line',

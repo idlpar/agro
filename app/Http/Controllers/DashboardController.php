@@ -54,10 +54,10 @@ class DashboardController extends Controller
             $revenueGrowth = $this->calculateRevenueGrowth($thisMonthTotalRevenue, $lastMonthTotalRevenue);
 
             // Outstanding payments
-            $outstandingPayments = DB::table('transactions')
-                ->select(DB::raw('SUM(total_amount - COALESCE((SELECT SUM(allocated_amount) FROM payment_transaction WHERE payment_transaction.transaction_id = transactions.id), 0)) as outstanding'))
-                ->where('is_paid', false)
-                ->value('outstanding') ?? 0;
+            $totalTransactionAmount = Transaction::whereNull('deleted_at')->sum('total_amount') ?? 0;
+            $totalPaymentAmount = Payment::whereNull('deleted_at')->sum('amount') ?? 0;
+            $totalDiscountAmount = Payment::whereNull('deleted_at')->sum('discount_amount') ?? 0;
+            $outstandingPayments = $totalTransactionAmount - $totalPaymentAmount - $totalDiscountAmount;
 
             // Payment stats
             $lastMonthTotalPayments = Payment::whereYear('payment_date', now()->subMonth()->year)
@@ -121,66 +121,52 @@ class DashboardController extends Controller
             $dueTransactions = Transaction::with(['customer', 'variant.product'])
                 ->where('is_paid', false)
                 ->withSum('payments as paid_amount', 'payment_transaction.allocated_amount')
+                ->withSum('payments as total_discount_amount', 'payments.discount_amount')
                 ->orderBy('transaction_date')
                 ->paginate(10)
                 ->map(function ($transaction) {
-                    $transaction->due_amount = $transaction->total_amount - ($transaction->paid_amount ?? 0);
+                    $transaction->due_amount = $transaction->total_amount - ($transaction->paid_amount ?? 0) - ($transaction->total_discount_amount ?? 0);
                     return $transaction;
                 });
 
             // Chart data
-            $revenueChartData = $this->getRevenueChartData();
-            $customerGrowthChartData = $this->getCustomerGrowthChartData();
-            $paymentCollectionChartData = $this->getPaymentCollectionChartData();
-            $productPerformanceChartData = $this->getProductPerformanceChartData();
-            $historicalProductSalesChartData = $this->getHistoricalProductSalesChartData();
+            $revenueChartData = (array)$this->getRevenueChartData();
+            $customerGrowthChartData = (array)$this->getCustomerGrowthChartData();
+            $paymentCollectionChartData = (array)$this->getPaymentCollectionChartData();
+            $productPerformanceChartData = (array)$this->getProductPerformanceChartData();
+            $historicalProductSalesChartData = (array)$this->getHistoricalProductSalesChartData();
 
-            return [
-                // Customer metrics
-                'totalCustomers' => $totalCustomers,
-                'activeCustomers' => $activeCustomers,
-                'newCustomers' => $newCustomers,
-
-                // Staff metrics
-                'totalStaff' => $totalStaff,
-                'activeStaff' => $activeStaff,
-
-                // Transaction metrics
-                'totalRevenue' => $totalRevenue,
-                'monthlyRevenue' => $monthlyRevenue,
-                'revenueGrowth' => $revenueGrowth,
-                'lastMonthTotalRevenue' => $lastMonthTotalRevenue,
-                'thisMonthTotalRevenue' => $thisMonthTotalRevenue,
-                'outstandingPayments' => $outstandingPayments,
-                'recentTransactions' => $recentTransactions,
-
-                // Payment metrics
-                'totalPayments' => $totalPayments,
-                'monthlyPayments' => $monthlyPayments,
-                'lastMonthTotalPayments' => $lastMonthTotalPayments,
-                'recentPayments' => $recentPayments,
-
-                // Visit metrics
-                'totalVisits' => $totalVisits,
-                'completedVisits' => $completedVisits,
-                'upcomingVisitsCount' => $upcomingVisitsCount,
-                'upcomingVisits' => $upcomingVisits,
-
-                // Product metrics
-                'totalProducts' => $totalProducts,
-                'totalVariants' => $totalVariants,
-                'topSellingVariants' => $topSellingVariants,
-
-                // Due transactions
-                'dueTransactions' => $dueTransactions,
-
-                // Chart data
-                'revenueChartData' => $revenueChartData,
-                'customerGrowthChartData' => $customerGrowthChartData,
-                'paymentCollectionChartData' => $paymentCollectionChartData,
-                'productPerformanceChartData' => $productPerformanceChartData,
-                'historicalProductSalesChartData' => $historicalProductSalesChartData,
-            ];
+            return compact(
+                'totalCustomers',
+                'activeCustomers',
+                'newCustomers',
+                'totalStaff',
+                'activeStaff',
+                'lastMonthTotalRevenue',
+                'thisMonthTotalRevenue',
+                'totalRevenue',
+                'monthlyRevenue',
+                'revenueGrowth',
+                'outstandingPayments',
+                'lastMonthTotalPayments',
+                'totalPayments',
+                'monthlyPayments',
+                'totalVisits',
+                'completedVisits',
+                'upcomingVisitsCount',
+                'totalProducts',
+                'totalVariants',
+                'topSellingVariants',
+                'recentTransactions',
+                'recentPayments',
+                'upcomingVisits',
+                'dueTransactions',
+                'revenueChartData',
+                'customerGrowthChartData',
+                'paymentCollectionChartData',
+                'productPerformanceChartData',
+                'historicalProductSalesChartData'
+            );
         });
 
         return view('dashboard.admin', $data);
@@ -237,16 +223,19 @@ class DashboardController extends Controller
             $myPaymentGrowth = $this->calculateRevenueGrowth($myThisMonthPayments, $myLastMonthPayments);
 
             // Outstanding payments for staff's customers
-            $myOutstandingPayments = DB::table('transactions')
-                ->select(DB::raw('SUM(total_amount - COALESCE((SELECT SUM(allocated_amount) FROM payment_transaction WHERE payment_transaction.transaction_id = transactions.id), 0)) as outstanding'))
-                ->where('is_paid', false)
-                ->whereExists(function ($query) use ($staffId) {
-                    $query->select(DB::raw(1))
-                        ->from('users')
-                        ->whereColumn('users.id', 'transactions.user_id')
-                        ->where('users.created_by', $staffId);
-                })
-                ->value('outstanding') ?? 0;
+            $myTotalTransactionAmount = Transaction::whereHas('customer', function($query) use ($staffId) {
+                $query->where('created_by', $staffId);
+            })->whereNull('deleted_at')->sum('total_amount') ?? 0;
+
+            $myTotalPaymentAmount = Payment::whereHas('customer', function($query) use ($staffId) {
+                $query->where('created_by', $staffId);
+            })->whereNull('deleted_at')->sum('amount') ?? 0;
+
+            $myTotalDiscountAmount = Payment::whereHas('customer', function($query) use ($staffId) {
+                $query->where('created_by', $staffId);
+            })->whereNull('deleted_at')->sum('discount_amount') ?? 0;
+
+            $myOutstandingPayments = $myTotalTransactionAmount - $myTotalPaymentAmount - $myTotalDiscountAmount;
 
             // Staff performance metrics
             $myPerformance = [
@@ -339,10 +328,11 @@ class DashboardController extends Controller
                 })
                 ->where('is_paid', false)
                 ->withSum('payments as paid_amount', 'payment_transaction.allocated_amount')
+                ->withSum('payments as total_discount_amount', 'payments.discount_amount')
                 ->orderBy('transaction_date')
                 ->paginate(10)
                 ->map(function ($transaction) {
-                    $transaction->due_amount = $transaction->total_amount - ($transaction->paid_amount ?? 0);
+                    $transaction->due_amount = $transaction->total_amount - ($transaction->paid_amount ?? 0) - ($transaction->total_discount_amount ?? 0);
                     return $transaction;
                 });
 
