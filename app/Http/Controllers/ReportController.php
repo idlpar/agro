@@ -54,14 +54,21 @@ class ReportController extends Controller
                     ->whereNull('deleted_at') // Exclude soft-deleted payments
                     ->whereBetween('payment_date', [$startDate, $endDate]);
             }, 'total_paid')
+            ->selectSub(function ($query) use ($startDate, $endDate) {
+                $query->selectRaw('COALESCE(SUM(discount_amount), 0)')
+                    ->from('payments')
+                    ->whereColumn('user_id', 'users.id')
+                    ->whereNull('deleted_at') // Exclude soft-deleted payments
+                    ->whereBetween('payment_date', [$startDate, $endDate]);
+            }, 'total_discount')
             ->get()
             ->map(function ($customer) {
-                $customer->total_due = $customer->total_revenue - $customer->total_paid;
+                $customer->total_due = $customer->total_revenue - $customer->total_paid - $customer->total_discount;
                 return $customer;
             })
             ->filter(function ($customer) {
                 // Only include customers with non-zero financial activity
-                return $customer->total_revenue > 0 || $customer->total_paid > 0 || $customer->total_due > 0;
+                return $customer->total_revenue > 0 || $customer->total_paid > 0 || $customer->total_due > 0 || $customer->total_discount > 0;
             });
 
         // Prepare chart data
@@ -70,6 +77,7 @@ class ReportController extends Controller
             'revenue' => $customerFinancials->pluck('total_revenue')->toArray(),
             'paid' => $customerFinancials->pluck('total_paid')->toArray(),
             'due' => $customerFinancials->pluck('total_due')->toArray(),
+            'discount' => $customerFinancials->pluck('total_discount')->toArray(),
         ];
 
         return view('reports.generate', [

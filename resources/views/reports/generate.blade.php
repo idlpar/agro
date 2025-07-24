@@ -54,6 +54,7 @@
                                                 <th class="px-6 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Customer</th>
                                                 <th class="px-6 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total Revenue</th>
                                                 <th class="px-6 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total Paid</th>
+                                                <th class="px-6 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total Discount</th>
                                                 <th class="px-6 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total Due</th>
                                             </tr>
                                         </thead>
@@ -63,6 +64,7 @@
                                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $customer->name }}</td>
                                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ number_format($customer->total_revenue, 2) }} Tk</td>
                                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ number_format($customer->total_paid, 2) }} Tk</td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ number_format($customer->total_discount, 2) }} Tk</td>
                                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ number_format($customer->total_due, 2) }} Tk</td>
                                                 </tr>
                                             @endforeach
@@ -74,7 +76,7 @@
                             <!-- Charts -->
                             <div class="mb-12 bg-gradient-to-r from-indigo-50 to-blue-50 p-6 rounded-lg shadow-md">
                                 <h4 class="font-semibold text-lg text-gray-800 mb-6">Financial Overview</h4>
-                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                                     <!-- Revenue Chart -->
                                     <div class="bg-white p-4 rounded-lg shadow-sm">
                                         <canvas id="revenueChart" class="w-full h-72"></canvas>
@@ -83,9 +85,15 @@
                                     <div class="bg-white p-4 rounded-lg shadow-sm">
                                         <canvas id="paidChart" class="w-full h-72"></canvas>
                                     </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <!-- Due Chart -->
                                     <div class="bg-white p-4 rounded-lg shadow-sm">
                                         <canvas id="dueChart" class="w-full h-72"></canvas>
+                                    </div>
+                                    <!-- Discount Chart -->
+                                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                                        <canvas id="discountChart" class="w-full h-72"></canvas>
                                     </div>
                                 </div>
                             </div>
@@ -128,6 +136,7 @@
                                                 <th class="px-6 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Customer</th>
                                                 <th class="px-6 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Receiver</th>
                                                 <th class="px-6 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Amount</th>
+                                                <th class="px-6 py-4 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Discount</th>
                                             </tr>
                                         </thead>
                                         <tbody class="bg-white divide-y divide-gray-200">
@@ -137,6 +146,7 @@
                                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $payment->customer->name }}</td>
                                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $payment->receiver->name }}</td>
                                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ number_format($payment->amount, 2) }} Tk</td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ number_format($payment->discount_amount, 2) }} Tk</td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
@@ -301,6 +311,66 @@
                                         data: @json($chartData['due']),
                                         backgroundColor: 'rgba(239, 68, 68, 0.7)',
                                         borderColor: 'rgba(239, 68, 68, 1)',
+                                        borderWidth: 2,
+                                        borderRadius: 8
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true,
+                                            title: {
+                                                display: true,
+                                                text: 'Amount (Tk)',
+                                                font: { size: 14, weight: 'bold' }
+                                            },
+                                            ticks: {
+                                                callback: function(value) {
+                                                    return value.toFixed(2) + ' Tk';
+                                                }
+                                            }
+                                        },
+                                        x: {
+                                            title: {
+                                                display: true,
+                                                text: 'Customer',
+                                                font: { size: 14, weight: 'bold' }
+                                            }
+                                        }
+                                    },
+                                    plugins: {
+                                        legend: {
+                                            display: true,
+                                            position: 'top',
+                                            labels: { font: { size: 12, weight: 'bold' } }
+                                        },
+                                        tooltip: {
+                                            callbacks: {
+                                                label: function(context) {
+                                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' Tk';
+                                                }
+                                            }
+                                        }
+                                    },
+                                    animation: {
+                                        duration: 1000,
+                                        easing: 'easeOutCubic'
+                                    }
+                                }
+                            });
+
+                            // Discount Chart
+                            new Chart(document.getElementById('discountChart'), {
+                                type: 'bar',
+                                data: {
+                                    labels: @json($chartData['labels']),
+                                    datasets: [{
+                                        label: 'Total Discount',
+                                        data: @json($chartData['discount']),
+                                        backgroundColor: 'rgba(255, 159, 64, 0.7)',
+                                        borderColor: 'rgba(255, 159, 64, 1)',
                                         borderWidth: 2,
                                         borderRadius: 8
                                     }]
