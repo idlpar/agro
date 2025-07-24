@@ -53,6 +53,8 @@
                                     <option value="">{{ __('Select Customer') }}</option>
                                     @foreach($customers as $customer)
                                         <option value="{{ $customer->id }}"
+                                                data-name="{{ $customer->name }}"
+                                                data-phone="{{ $customer->phone ?? '' }}"
                                                 data-due="{{ $customer->calculated_due_amount }}"
                                             {{ old('user_id') == $customer->id ? 'selected' : '' }}>
                                             {{ $customer->name }} @if($customer->phone) ({{ $customer->phone }}) @endif
@@ -87,8 +89,9 @@
                                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                             <span class="text-gray-500 sm:text-sm">৳</span>
                                         </div>
-                                        <input type="number" step="0.01" min="0.01" id="amount" name="amount" value="{{ old('amount') }}" required
+                                        <input type="text" step="0.01" min="0.01" id="amount" value="{{ old('amount') }}" required
                                                class="block w-full pl-9 pr-12 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                        <input type="hidden" id="amount_hidden" name="amount" value="{{ old('amount') }}">
                                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                             <span class="text-gray-500 sm:text-sm">Tk</span>
                                         </div>
@@ -115,6 +118,42 @@
                                         {{ __('System will apply payment to oldest unpaid transactions first') }}
                                     </p>
                                 </div>
+                            </div>
+
+                            <!-- Settle All Dues Toggle -->
+                            <div class="flex items-start">
+                                <div class="flex items-center h-5">
+                                    <input id="settle_all_dues" name="settle_all_dues" type="checkbox" value="1"
+                                           {{ old('settle_all_dues') ? 'checked' : '' }}
+                                           class="focus:ring-red-500 h-4 w-4 text-red-600 border-gray-300 rounded">
+                                </div>
+                                <div class="ml-3 text-sm">
+                                    <label for="settle_all_dues" class="font-medium text-gray-700">
+                                        {{ __('Settle all previous dues with discount') }}
+                                    </label>
+                                    <p class="text-gray-500">
+                                        {{ __('If checked, this payment will close all previous dues with a discount.') }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Discount Amount -->
+                            <div id="discount_amount_container" class="hidden">
+                                <label for="discount_amount" class="block text-sm font-medium text-gray-700 mb-1">{{ __('Discount Amount (Tk)') }}</label>
+                                <div class="relative rounded-lg shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span class="text-gray-500 sm:text-sm">৳</span>
+                                    </div>
+                                    <input type="text" step="0.01" min="0.01" id="discount_amount" value="{{ old('discount_amount') }}"
+                                           class="block w-full pl-9 pr-12 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                    <input type="hidden" id="discount_amount_hidden" name="discount_amount" value="{{ old('discount_amount') }}">
+                                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                        <span class="text-gray-500 sm:text-sm">Tk</span>
+                                    </div>
+                                </div>
+                                @error('discount_amount')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
                             </div>
 
                             <!-- Notes -->
@@ -173,12 +212,65 @@
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function() {
+                const form = document.getElementById('paymentForm');
                 const customerSelect = document.getElementById('user_id');
                 const dueInfoContainer = document.getElementById('dueInfoContainer');
                 const totalDueElement = document.getElementById('totalDue');
                 const transactionCountElement = document.getElementById('transactionCount');
                 const recentTransactionsElement = document.getElementById('recentTransactions');
                 const amountInput = document.getElementById('amount');
+                const amountHiddenInput = document.getElementById('amount_hidden');
+                const settleAllDuesCheckbox = document.getElementById('settle_all_dues');
+                const discountAmountContainer = document.getElementById('discount_amount_container');
+                const discountAmountInput = document.getElementById('discount_amount');
+                const discountAmountHiddenInput = document.getElementById('discount_amount_hidden');
+
+                function formatBdNumber(num) {
+                    return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+                }
+
+                function calculateDiscount() {
+                    const selectedOption = customerSelect.options[customerSelect.selectedIndex];
+                    const dueAmount = parseFloat(selectedOption.dataset.due) || 0;
+                    const paymentAmount = parseFloat(amountInput.value.replace(/,/g, '')) || 0;
+
+                    if (settleAllDuesCheckbox.checked) {
+                        const discount = dueAmount - paymentAmount;
+                        discountAmountInput.value = discount > 0 ? discount.toFixed(2) : 0;
+                        discountAmountHiddenInput.value = discount > 0 ? discount.toFixed(2) : 0;
+                    }
+                }
+
+                settleAllDuesCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        discountAmountContainer.classList.remove('hidden');
+                        calculateDiscount();
+                    } else {
+                        discountAmountContainer.classList.add('hidden');
+                        discountAmountInput.value = '';
+                    }
+                });
+
+                amountInput.addEventListener('input', calculateDiscount);
+                amountInput.addEventListener('blur', function(e) {
+                    let value = parseFloat(e.target.value.replace(/,/g, ''));
+                    if (!isNaN(value)) {
+                        e.target.value = formatBdNumber(value);
+                        amountHiddenInput.value = value.toFixed(2);
+                    } else {
+                        amountHiddenInput.value = '';
+                    }
+                });
+
+                discountAmountInput.addEventListener('blur', function(e) {
+                    let value = parseFloat(e.target.value.replace(/,/g, ''));
+                    if (!isNaN(value)) {
+                        e.target.value = formatBdNumber(value);
+                        discountAmountHiddenInput.value = value.toFixed(2);
+                    } else {
+                        discountAmountHiddenInput.value = '';
+                    }
+                });
 
                 customerSelect.addEventListener('change', function() {
                     const customerId = this.value;
@@ -213,7 +305,7 @@
 
                             if (data && data.transaction_count > 0) {
                                 dueInfoContainer.classList.remove('hidden');
-                                totalDueElement.textContent = parseFloat(data.due_amount).toFixed(2) + ' Tk';
+                                totalDueElement.textContent = formatBdNumber(data.due_amount) + ' Tk';
                                 transactionCountElement.textContent = data.transaction_count;
 
                                 // Display recent transactions
@@ -228,7 +320,7 @@
                                         });
 
                                         const statusColor = transaction.is_paid ? 'text-green-600' : 'text-blue-600';
-                                        const statusText = transaction.is_paid ? 'Paid' : `Due: ${parseFloat(transaction.due_amount).toFixed(2)} Tk`;
+                                        const statusText = transaction.is_paid ? 'Paid' : `Due: ${formatBdNumber(transaction.due_amount)} Tk`;
                                         const statusBg = transaction.is_paid ? 'bg-green-50 border-green-100' : 'bg-blue-50 border-blue-100';
 
                                         const transactionElement = document.createElement('div');
@@ -238,11 +330,11 @@
                                         <div>
                                             <div class="text-sm font-medium text-gray-900">${transaction.product_name || 'N/A'}</div>
                                             <div class="text-xs text-gray-500 mt-1">${formattedDate} • ${transaction.variant_name || 'N/A'}</div>
-                                            <div class="text-xs text-gray-500 mt-1">${transaction.quantity} × ${parseFloat(transaction.unit_price).toFixed(2)} Tk</div>
+                                            <div class="text-xs text-gray-500 mt-1">${transaction.quantity} × ${formatBdNumber(transaction.unit_price)} Tk</div>
                                         </div>
                                         <div class="text-right">
                                             <div class="text-sm font-semibold ${statusColor}">
-                                                ${parseFloat(transaction.total_amount).toFixed(2)} Tk
+                                                ${formatBdNumber(transaction.total_amount)} Tk
                                             </div>
                                             <div class="text-xs ${transaction.is_paid ? 'text-green-500' : 'text-yellow-500'}">
                                                 ${statusText}
@@ -276,46 +368,35 @@
                         });
                 });
 
-                // Function to update the displayed text of the selected option
-                function updateCustomerSelectDisplay() {
-                    const selectedOption = customerSelect.options[customerSelect.selectedIndex];
-                    // Only modify if a customer is actually selected (not the placeholder)
-                    if (selectedOption && selectedOption.value !== '') {
-                        const dueAmount = parseFloat(selectedOption.dataset.due);
-                        const customerName = selectedOption.dataset.name;
-                        const customerPhone = selectedOption.dataset.phone;
-
-                        let displayText = customerName;
-                        if (customerPhone) {
-                            displayText += ` (${customerPhone})`;
-                        }
-
-                        if (dueAmount > 0) {
-                            displayText += ` (Due: ${dueAmount.toFixed(2)} Tk)`;
-                        }
-                        selectedOption.textContent = displayText;
-                    }
-                }
-
-                // Initial update on page load
-                updateCustomerSelectDisplay();
-
-                // Update on customer selection change
-                customerSelect.addEventListener('change', updateCustomerSelectDisplay);
+                
 
                 // Trigger change if customer is already selected (form validation error)
                 if (customerSelect.value) {
                     customerSelect.dispatchEvent(new Event('change'));
                 }
+
+                form.addEventListener('submit', function(e) {
+                    // Ensure hidden fields have unformatted values before submission
+                    amountHiddenInput.value = parseFloat(amountInput.value.replace(/,/g, '')) || '';
+                    discountAmountHiddenInput.value = parseFloat(discountAmountInput.value.replace(/,/g, '')) || '';
+                });
             });
 
             function confirmPayment() {
                 const form = document.getElementById('paymentForm');
                 const customerSelect = document.getElementById('user_id');
-                const customerName = customerSelect.options[customerSelect.selectedIndex].text;
-                const amount = document.getElementById('amount').value;
+                const selectedOption = customerSelect.options[customerSelect.selectedIndex];
+                const customerName = selectedOption.dataset.name;
+                const customerPhone = selectedOption.dataset.phone;
+                const amount = document.getElementById('amount').value.replace(/,/g, '');
                 const date = document.getElementById('payment_date').value;
                 const autoAllocate = document.getElementById('mark_transactions_paid').checked;
+                const settleAllDues = document.getElementById('settle_all_dues').checked;
+                const discountAmount = document.getElementById('discount_amount').value.replace(/,/g, '');
+
+                function formatBdNumber(num) {
+                    return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+                }
 
                 if (!customerSelect.value) {
                     Swal.fire({
@@ -346,15 +427,23 @@
                         <div class="bg-gray-50 rounded-lg p-4 mt-2">
                             <div class="grid grid-cols-2 gap-2">
                                 <div class="font-medium">Customer:</div>
-                                <div>${customerName}</div>
+                                <div>${customerName} ${customerPhone ? `(${customerPhone})` : ''}</div>
                                 <div class="font-medium">Amount:</div>
-                                <div class="font-bold">${parseFloat(amount).toFixed(2)} Tk</div>
+                                <div class="font-bold">${formatBdNumber(amount)} Tk</div>
+                                ${settleAllDues ? `
+                                <div class="font-medium">Discount:</div>
+                                <div class="font-bold">${formatBdNumber(discountAmount)} Tk</div>
+                                ` : ''}
                                 <div class="font-medium">Date:</div>
                                 <div>${new Date(date).toLocaleDateString()}</div>
                                 <div class="font-medium">Auto-allocate:</div>
                                 <div class="${autoAllocate ? 'text-green-600 font-medium' : 'text-yellow-600 font-medium'}">
                                     ${autoAllocate ? 'Yes' : 'No'}
                                 </div>
+                                ${settleAllDues ? `
+                                <div class="font-medium">Settle All Dues:</div>
+                                <div class="text-green-600 font-medium">Yes</div>
+                                ` : ''}
                             </div>
                         </div>
                     </div>

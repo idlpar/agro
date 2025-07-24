@@ -135,16 +135,28 @@ class PaymentController extends Controller
             'payment_date' => 'required|date',
             'amount' => 'required|numeric|min:0.01',
             'notes' => 'nullable|string',
-            'mark_transactions_paid' => 'sometimes|boolean'
+            'settle_all_dues' => 'sometimes|boolean',
+            'discount_amount' => 'nullable|numeric|min:0',
         ]);
 
         $customer = User::findOrFail($validated['user_id']);
         $validated['received_by'] = auth()->id();
 
         DB::transaction(function () use ($validated, $request, $customer) {
-            $payment = Payment::create($validated);
+            $paymentData = $validated;
+            if ($request->boolean('settle_all_dues')) {
+                $paymentData['is_settlement'] = true;
+                $paymentData['discount_amount'] = $validated['discount_amount'] ?? 0;
+            } else {
+                $paymentData['is_settlement'] = false;
+                $paymentData['discount_amount'] = null;
+            }
 
-            if ($request->boolean('mark_transactions_paid')) {
+            $payment = Payment::create($paymentData);
+
+            if ($request->boolean('settle_all_dues')) {
+                $this->settleAllDues($payment, $customer);
+            } else {
                 $this->allocatePaymentToTransactions($payment, $customer, $validated['amount']);
             }
         });
@@ -198,6 +210,23 @@ class PaymentController extends Controller
         }
     }
 
+    protected function settleAllDues(Payment $payment, User $customer): void
+    {
+        $transactions = $customer->transactions()
+            ->where('is_paid', false)
+            ->get();
+
+        foreach ($transactions as $transaction) {
+            $payment->transactions()->attach($transaction->id, [
+                'allocated_amount' => $transaction->total_amount
+            ]);
+
+            $transaction->update([
+                'is_paid' => true,
+            ]);
+        }
+    }
+
     public function show(Payment $payment)
     {
         $this->authorize('view', $payment);
@@ -229,9 +258,11 @@ class PaymentController extends Controller
             'payment_date' => 'required|date',
             'amount' => 'required|numeric|min:0.01',
             'notes' => 'nullable|string',
+            'settle_all_dues' => 'sometimes|boolean',
+            'discount_amount' => 'nullable|numeric|min:0',
         ]);
 
-        DB::transaction(function () use ($payment, $validated) {
+        DB::transaction(function () use ($payment, $validated, $request) {
             // Find all transactions that were linked to this payment before any changes
             $previouslyLinkedTransactions = $payment->transactions()->get();
 
@@ -245,13 +276,25 @@ class PaymentController extends Controller
                 $transaction->updatePaymentStatus();
             }
 
-            // Now, update the payment record itself with the new amount and details
-            $payment->update($validated);
+            $paymentData = $validated;
+            if ($request->boolean('settle_all_dues')) {
+                $paymentData['is_settlement'] = true;
+                $paymentData['discount_amount'] = $validated['discount_amount'] ?? 0;
+            } else {
+                $paymentData['is_settlement'] = false;
+                $paymentData['discount_amount'] = null;
+            }
 
-            // Always re-allocate the payment's new amount to the customer's due transactions
+            // Now, update the payment record itself with the new amount and details
+            $payment->update($paymentData);
+
             $customer = User::find($validated['user_id']);
             if ($customer) {
-                $this->allocatePaymentToTransactions($payment, $customer, $validated['amount']);
+                if ($request->boolean('settle_all_dues')) {
+                    $this->settleAllDues($payment, $customer);
+                } else {
+                    $this->allocatePaymentToTransactions($payment, $customer, $validated['amount']);
+                }
             }
         });
 

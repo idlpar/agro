@@ -17,6 +17,8 @@ class Payment extends Model
         'payment_date',
         'amount',
         'notes',
+        'discount_amount',
+        'is_settlement',
     ];
 
     protected $casts = [
