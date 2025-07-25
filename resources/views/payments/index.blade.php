@@ -199,6 +199,10 @@
                                     <span class="font-medium">{{ number_format($totalAmount, 2) }} Tk</span>
                                 </div>
                                 <div class="flex items-center">
+                                    <span class="text-gray-500 mr-1">{{ __('Discount:') }}</span>
+                                    <span class="font-medium">{{ number_format($totalDiscount, 2) }} Tk</span>
+                                </div>
+                                <div class="flex items-center">
                                     <span class="text-gray-500 mr-1">{{ __('Allocated:') }}</span>
                                     <span class="font-medium text-green-600">{{ number_format($totalAllocated, 2) }} Tk</span>
                                 </div>
@@ -254,6 +258,9 @@
                                 </a>
                             </th>
                             <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {{ __('Discount') }}
+                            </th>
+                            <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 {{ __('Allocated') }}
                             </th>
                             <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -286,6 +293,9 @@
                                 </td>
                                 <td class="px-4 py-2 whitespace-nowrap text-xs font-medium text-gray-900">
                                     {{ number_format($payment->amount, 2) }} Tk
+                                </td>
+                                <td class="px-4 py-2 whitespace-nowrap text-xs font-medium text-gray-900">
+                                    {{ number_format($payment->discount_amount, 2) }} Tk
                                 </td>
                                 <td class="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
                                     {{ number_format($payment->transactions->sum('pivot.allocated_amount'), 2) }} Tk

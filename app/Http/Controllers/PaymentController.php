@@ -88,6 +88,7 @@ class PaymentController extends Controller
 
         // Calculate summary stats
         $totalAmount = $payments->sum('amount');
+        $totalDiscount = $payments->sum('discount_amount');
         $totalAllocated = 0;
         foreach ($payments as $payment) {
             $totalAllocated += $payment->transactions->sum('pivot.allocated_amount');
@@ -99,6 +100,7 @@ class PaymentController extends Controller
             'customers',
             'receivers',
             'totalAmount',
+            'totalDiscount',
             'totalAllocated',
             'totalUnallocated'
         ));
