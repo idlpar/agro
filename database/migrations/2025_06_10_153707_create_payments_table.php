@@ -14,6 +14,8 @@ return new class extends Migration
             $table->foreignId('received_by')->constrained('users'); // staff who received
             $table->date('payment_date');
             $table->decimal('amount', 10, 2);
+            $table->decimal('discount_amount', 10, 2)->default(0);
+            $table->boolean('is_settlement')->default(false);
             $table->text('notes')->nullable();
             $table->timestamps();
             $table->softDeletes();
