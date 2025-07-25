@@ -183,8 +183,12 @@
                                     <span class="font-medium">{{ number_format($firstTotalAmount, 2) }} Tk</span>
                                 </div>
                                 <div class="flex items-center">
-                                    <span class="text-gray-500 mr-1">{{ __('Due:') }}</span>
-                                    <span class="font-medium text-red-600">{{ number_format($totalDue, 2) }} Tk</span>
+                                    <span class="text-gray-500 mr-1">{{ __('Discount:') }}</span>
+                                    <span class="font-medium">{{ number_format($totalDiscount, 2) }} Tk</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="text-gray-500 mr-1">{{ __('Advance:') }}</span>
+                                    <span class="font-medium">{{ number_format($totalAdvance, 2) }} Tk</span>
                                 </div>
                             </div>
                         </div>

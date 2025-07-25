@@ -401,25 +401,25 @@ class PaymentController extends Controller
 
             // Add CSV headers
             fputcsv($file, [
-                'Payment ID',
                 'Date',
                 'Customer',
                 'Amount',
+                'Discount',
+                'Allocated',
                 'Received By',
-                'Allocated Amount',
-                'Notes'
+                'Status',
             ]);
 
             // Add data rows
             foreach ($payments as $payment) {
                 fputcsv($file, [
-                    $payment->id,
                     $payment->payment_date->format('Y-m-d'),
                     $payment->customer->name,
                     $payment->amount,
+                    $payment->discount_amount,
+                    $payment->transactions->sum('pivot.allocated_amount'),
                     $payment->receiver->name,
-                    $payment->transactions->sum('total_amount'),
-                    $payment->notes
+                    $payment->transactions->count() ? 'Allocated' : 'Unallocated',
                 ]);
             }
 

@@ -50,17 +50,18 @@ class TransactionController extends Controller
                 ->latest();
         }
 
+        // Export handling
+        if ($request->has('export')) {
+            return $this->exportTransactions($query->get());
+        }
+
         $transactions = $transactions->paginate(20);
 
         // Get totals for summary cards
         $totalAmount = $transactions->sum('total_amount');  // Total amount of all transactions
+        $totalDiscount = $transactions->sum('discount_amount');
+        $totalAdvance = $transactions->sum('partial_pay');
         $partialPayments = $transactions->sum('partial_pay');  // Sum of direct partial payments
-        $allocatedPayments = $transactions->sum(function ($transaction) {
-            return $transaction->payments()->sum('allocated_amount');
-        });  // Sum of allocated payments through payment_transactions
-
-        // Calculate final amount due
-        $totalDue = $totalAmount - $allocatedPayments;
         $firstTotalAmount = $totalAmount - $partialPayments;
         // Get filter options
         $customers = $user->isAdmin()
@@ -74,7 +75,8 @@ class TransactionController extends Controller
             'customers',
             'products',
             'firstTotalAmount',
-            'totalDue'
+            'totalDiscount',
+            'totalAdvance'
         ));
     }
 
@@ -530,5 +532,47 @@ class TransactionController extends Controller
             'paid_transactions' => $customer->paidTransactions->count(),
             'partial_transactions' => $customer->allTransactions->filter->isPartiallyPaid()->count()
         ]);
+    }
+
+    protected function exportTransactions($transactions)
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="transactions_'.date('Y-m-d').'.csv"',
+        ];
+
+        $callback = function() use ($transactions) {
+            $file = fopen('php://output', 'w');
+
+            // Add CSV headers
+            fputcsv($file, [
+                'Date',
+                'Customer',
+                'Product',
+                'Qty',
+                'Discount',
+                'Advance',
+                'Amount',
+                'Status',
+            ]);
+
+            // Add data rows
+            foreach ($transactions as $transaction) {
+                fputcsv($file, [
+                    $transaction->transaction_date->format('Y-m-d'),
+                    $transaction->customer->name,
+                    $transaction->variant->product->name . ' ' . $transaction->variant->name,
+                    $transaction->quantity,
+                    $transaction->discount_amount,
+                    $transaction->partial_pay,
+                    $transaction->total_amount,
+                    $transaction->is_paid ? 'Paid' : 'Due',
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }
