@@ -1,0 +1,4 @@
+# Git, IDEs and editors
+.idea/
+.git/
+node_modules/
